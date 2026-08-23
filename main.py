@@ -606,7 +606,7 @@ def handle_answer(call):
     user_data[chat_id]['current_q'] += 1
     bot.delete_message(chat_id, call.message.message_id)
     send_question(chat_id)
-
-if __name__ == '__main__':
+    if __name__ == '__main__':
     keep_alive()
-    bot.infinity_polling()
+    bot.remove_webhook()
+    bot.infinity_polling(skip_pending_updates=True)
