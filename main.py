@@ -610,3 +610,52 @@ def handle_answer(call):
     keep_alive()
     bot.remove_webhook()
     bot.infinity_polling(skip_pending_updates=True)
+def send_question(chat_id):
+    q_idx = user_data[chat_id]['current_q']
+    
+    if q_idx >= len(QUESTIONS):
+        score = user_data[chat_id]['score']
+        total = len(QUESTIONS)
+        bot.send_message(
+            chat_id,
+            f"🎉 **Təbriklər! İmtahanı başa vurdunuz.**\n\nYekun nəticəniz: {total} sualdan **{score}** doğru cavab!",
+            parse_mode="Markdown"
+        )
+        return
+
+    q = QUESTIONS[q_idx]
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    # Düymələrin içinə uzun mətn yox, sadəcə variantın indeksini (0, 1, 2, 3) qoyuruq
+    for idx, opt in enumerate(q['options']):
+        markup.add(types.InlineKeyboardButton(text=opt, callback_data=str(idx)))
+        
+    bot.send_message(
+        chat_id, 
+        f"**Sual {q_idx + 1} / {len(QUESTIONS)}:**\n\n{q['question']}", 
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_answer(call):
+    chat_id = call.message.chat.id
+    
+    if chat_id not in user_data:
+        bot.answer_callback_query(call.id, "Zəhmət olmasa testi yenidən başladın.")
+        return
+    
+    q_idx = user_data[chat_id]['current_q']
+    correct_ans = QUESTIONS[q_idx]['correct']
+    selected_option_idx = int(call.data)
+    selected_ans = QUESTIONS[q_idx]['options'][selected_option_idx]
+    
+    if selected_ans == correct_ans:
+        user_data[chat_id]['score'] += 1
+        bot.answer_callback_query(call.id, "✅ Doğru cavab!")
+    else:
+        bot.answer_callback_query(call.id, f"❌ Səhvdir! Doğru cavab:\n{correct_ans}", show_alert=True)
+        
+    user_data[chat_id]['current_q'] += 1
+    bot.delete_message(chat_id, call.message.message_id)
+    send_question(chat_id)
